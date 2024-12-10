@@ -1,0 +1,824 @@
+---
+title: "FinalDataEDA"
+output: html_document
+date: "2024-12-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(dplyr)
+
+# Trip counts by proximity and user type
+trip_counts_by_user <- trip_data_with_mbta %>%
+  group_by(start_station_proximity, end_station_proximity, member_casual) %>%
+  summarise(total_trips = n(), .groups = "drop")  # Drop groups after summarizing
+
+# View results
+print(trip_counts_by_user)
+
+```
+
+```{r}
+# Mean trip duration by proximity
+trip_durations <- trip_data_with_mbta %>%
+  group_by(start_station_proximity, end_station_proximity) %>%
+  summarise(mean_duration = mean(trip_duration, na.rm = TRUE))
+
+# View results
+print(trip_durations)
+
+```
+
+```{r}
+library(lubridate)
+
+# Extract hour from start time
+trip_data_with_mbta <- trip_data_with_mbta %>%
+  mutate(hour = hour(as.POSIXct(started_at)))
+
+# Trip counts by hour
+hourly_trends <- trip_data_with_mbta %>%
+  group_by(hour) %>%
+  summarise(total_trips = n())
+
+# View results
+print(hourly_trends)
+
+```
+
+```{r}
+# Extract day of week
+trip_data_with_mbta <- trip_data_with_mbta %>%
+  mutate(day_of_week = wday(as.POSIXct(started_at), label = TRUE))
+
+# Trip counts by day of week
+daily_trends <- trip_data_with_mbta %>%
+  group_by(day_of_week) %>%
+  summarise(total_trips = n())
+
+# View results
+print(daily_trends)
+
+```
+
+```{r}
+# Trips by MBTA line
+trips_by_line <- trip_data_with_mbta %>%
+  group_by(start_mbta_line, end_mbta_line) %>%
+  summarise(total_trips = n())
+
+# View results
+print(trips_by_line)
+
+```
+
+```{r}
+# Top MBTA stations
+top_mbta_stations <- trip_data_with_mbta %>%
+  group_by(start_mbta_station, end_mbta_station) %>%
+  summarise(total_trips = n()) %>%
+  arrange(desc(total_trips))
+
+# View results
+print(top_mbta_stations)
+
+```
+```{r}
+# User type analysis
+user_type_analysis <- trip_data_with_mbta %>%
+  group_by(member_casual, start_station_proximity, end_station_proximity) %>%
+  summarise(total_trips = n())
+
+# View results
+print(user_type_analysis)
+
+```
+
+```{r}
+duration_by_user <- trip_data_with_mbta %>%
+  group_by(start_station_proximity, end_station_proximity, member_casual) %>%
+  summarise(mean_duration = mean(trip_duration, na.rm = TRUE))
+
+print(duration_by_user)
+
+```
+
+
+```{r}
+# Group by start/end stations and user type
+popular_routes_by_user <- trip_data_with_mbta %>%
+  group_by(start_station_name, end_station_name, member_casual) %>%
+  summarise(total_trips = n(), .groups = "drop") %>%
+  arrange(desc(total_trips))
+
+# View top 10 routes by user type
+head(popular_routes_by_user, 10)
+
+```
+
+```{r}
+# Filter for routes involving Close proximity stations
+close_routes <- trip_data_with_mbta %>%
+  filter(start_station_proximity == "Close" | end_station_proximity == "Close") %>%
+  group_by(start_station_name, end_station_name) %>%
+  summarise(total_trips = n(), .groups = "drop") %>%
+  arrange(desc(total_trips))
+
+# View top 10 Close proximity routes
+head(close_routes, 10)
+
+```
+
+```{r}
+library(readxl)
+
+blue_bike_stations <- read_excel("Blue_Bike_Stations.xlsx")  # Replace with the correct file path
+
+# Clean Blue Bike Stations data
+blue_bike_stations <- blue_bike_stations %>%
+  select(Name, District) %>%  # Select relevant columns
+  rename(station_name = Name) %>%  # Rename column for consistency
+  mutate(station_name = tolower(trimws(station_name)))  # Standardize names
+
+# Clean the main dataset
+trip_data_with_mbta <- trip_data_with_mbta %>%
+  mutate(
+    start_station_name = tolower(trimws(start_station_name)),
+    end_station_name = tolower(trimws(end_station_name))
+  )
+
+# Join district information for start stations
+trip_data_with_districts <- trip_data_with_mbta %>%
+  left_join(blue_bike_stations, by = c("start_station_name" = "station_name")) %>%
+  rename(start_station_district = District)
+
+# Join district information for end stations
+trip_data_with_districts <- trip_data_with_districts %>%
+  left_join(blue_bike_stations, by = c("end_station_name" = "station_name")) %>%
+  rename(end_station_district = District)
+
+# View the updated dataset
+head(trip_data_with_districts)
+```
+
+```{r}
+# Count trips by start district
+start_district_counts <- trip_data_with_districts %>%
+  group_by(start_station_district) %>%
+  summarise(total_trips = n(), .groups = "drop") %>%
+  arrange(desc(total_trips))
+
+# Count trips by end district
+end_district_counts <- trip_data_with_districts %>%
+  group_by(end_station_district) %>%
+  summarise(total_trips = n(), .groups = "drop") %>%
+  arrange(desc(total_trips))
+
+# View results
+print("Start District Trip Counts:")
+print(start_district_counts)
+
+print("End District Trip Counts:")
+print(end_district_counts)
+```
+
+```{r}
+
+# Group by start district, end district, and user type
+district_user_counts <- trip_data_with_districts %>%
+  group_by(start_station_district, end_station_district, member_casual) %>%
+  summarise(total_trips = n(), .groups = "drop") %>%
+  arrange(desc(total_trips))
+
+# View the results
+print(district_user_counts)
+
+```
+
+```{r}
+library(dplyr)
+library(lubridate)
+
+# Add an hour column
+trip_data_with_mbta <- trip_data_with_mbta %>%
+  mutate(hour = hour(as.POSIXct(started_at)),
+         peak_commute = ifelse(
+           (hour >= 8 & hour < 9 | hour >= 17 & hour < 18) & 
+           (start_station_proximity == "Close" | end_station_proximity == "Close"), 
+           1, 
+           0  # Binary dependent variable
+         ))
+
+# Convert categorical variables to factors
+trip_data_with_mbta <- trip_data_with_mbta %>%
+  mutate(
+    member_casual = as.factor(member_casual),
+    rideable_type = as.factor(rideable_type)
+  )
+```
+
+```{r}
+# Fit the logistic regression model
+logit_model <- glm(
+  peak_commute ~ member_casual + rideable_type + trip_duration, 
+  data = trip_data_with_mbta, 
+  family = binomial()
+)
+
+# Summarize the model
+summary(logit_model)
+
+```
+
+```{r}
+library(dplyr)
+library(lubridate)
+
+# Add weekday column
+trip_data_with_mbta <- trip_data_with_mbta %>%
+  mutate(
+    hour = hour(as.POSIXct(started_at)),  # Extract hour
+    day_of_week = wday(as.POSIXct(started_at), label = TRUE, week_start = 1),  # Extract weekday
+    is_weekday = ifelse(day_of_week %in% c("Mon", "Tue", "Wed", "Thu", "Fri"), 1, 0),  # Binary for weekdays
+    
+    # Define new binary variable for Close station trips during peak hours on weekdays
+    peak_commute_weekday = ifelse(
+      is_weekday == 1 & 
+      (hour >= 8 & hour < 9 | hour >= 17 & hour < 18) & 
+      (start_station_proximity == "Close" | end_station_proximity == "Close"), 
+      1, 
+      0
+    )
+  )
+
+# Convert categorical variables to factors
+trip_data_with_mbta <- trip_data_with_mbta %>%
+  mutate(
+    member_casual = as.factor(member_casual),
+    rideable_type = as.factor(rideable_type)
+  )
+
+# Re-run the logistic regression model
+logit_model_weekday <- glm(
+  peak_commute_weekday ~ member_casual + rideable_type + trip_duration, 
+  data = trip_data_with_mbta, 
+  family = binomial()
+)
+
+# Summarize the model
+summary(logit_model_weekday)
+
+```
+
+
+```{r}
+library(dplyr)
+
+# Morning commute: Trip ends at a Close station
+trip_data_with_mbta <- trip_data_with_mbta %>%
+  mutate(
+    morning_commute = ifelse(
+      is_weekday == 1 & hour >= 8 & hour < 9 & end_station_proximity == "Close", 
+      1, 
+      0
+    ),
+    # Evening commute: Trip starts at a Close station
+    evening_commute = ifelse(
+      is_weekday == 1 & hour >= 17 & hour < 18 & start_station_proximity == "Close", 
+      1, 
+      0
+    )
+  )
+
+```
+
+
+```{r}
+# Logistic regression for morning commutes
+logit_model_morning <- glm(
+  morning_commute ~ member_casual + rideable_type + trip_duration, 
+  data = trip_data_with_mbta, 
+  family = binomial()
+)
+
+summary(logit_model_morning)
+
+# Generate predicted probabilities from the logistic regression model
+trip_data_with_mbta <- trip_data_with_mbta %>%
+  mutate(
+    predicted_prob = predict(logit_model_morning, type = "response"),  # Predicted probabilities
+    predicted_class = ifelse(predicted_prob >= 0.5, 1, 0)  # Convert probabilities to binary class
+  )
+
+# Calculate accuracy
+accuracy <- mean(trip_data_with_mbta$predicted_class == trip_data_with_mbta$morning_commute)
+print(paste("Model Accuracy:", round(accuracy * 100, 2), "%"))
+
+```
+
+
+```{r}
+# Logistic regression for evening commutes
+logit_model_evening <- glm(
+  evening_commute ~ member_casual + rideable_type + trip_duration, 
+  data = trip_data_with_mbta, 
+  family = binomial()
+)
+
+summary(logit_model_evening)
+
+# Generate predicted probabilities from the evening commute logistic regression model
+trip_data_with_mbta <- trip_data_with_mbta %>%
+  mutate(
+    predicted_prob_evening = predict(logit_model_evening, type = "response"),  # Predicted probabilities
+    predicted_class_evening = ifelse(predicted_prob_evening >= 0.5, 1, 0)  # Convert probabilities to binary class
+  )
+
+# Calculate accuracy for evening commute
+accuracy_evening <- mean(trip_data_with_mbta$predicted_class_evening == trip_data_with_mbta$evening_commute)
+print(paste("Evening Commute Model Accuracy:", round(accuracy_evening * 100, 2), "%"))
+
+
+```
+
+# CLUSTERING ANALYSIS
+
+```{r}
+# Join to get Total docks per start station
+library(readxl)
+bluebike_mbta <- read_excel("BlueBikeStations_MBTAStops.xlsx")  
+
+# Rename columns for clarity
+bluebike_mbta <- bluebike_mbta %>%
+  rename(
+    station_name = BlueBikeStation,
+    latitude = Latitude,
+    longitude = Longitude,
+    total_docks = Total_dock,
+    mbta_station = `MBTA Station`,
+    mbta_line = `MBTA Line`
+  )
+
+# Standardize station names in bluebike_mbta
+bluebike_mbta <- bluebike_mbta %>%
+  mutate(station_name = tolower(trimws(station_name)))
+
+# Join Total_dock and other features to trip_data_with_mbta for start and end stations
+trip_data_with_mbta <- trip_data_with_mbta %>%
+  left_join(bluebike_mbta %>% select(station_name, total_docks), 
+            by = c("start_station_name" = "station_name")) %>%
+  rename(start_station_docks = total_docks)
+
+# View result
+head(trip_data_with_mbta)
+
+
+```
+
+```{r}
+library(dplyr)
+
+# Aggregate features by station
+station_features <- trip_data_with_mbta %>%
+  group_by(start_station_name) %>%
+  summarise(
+    total_trips = n(),  # Total trips starting at the station
+    peak_trip_proportion = mean(hour %in% c(8, 9, 17, 18), na.rm = TRUE),  # Proportion of trips during peak hours
+    member_proportion = mean(member_casual == "member", na.rm = TRUE),  # Proportion of trips by members
+    avg_trip_duration = mean(trip_duration, na.rm = TRUE),  # Average trip duration
+    total_docks = mean(start_station_docks, na.rm = TRUE),  # Total docks at the station
+    close_to_mbta = ifelse(mean(start_station_proximity == "Close", na.rm = TRUE) > 0.5, 1, 0)  # Binary for proximity
+  )
+
+# View the aggregated data
+head(station_features)
+
+```
+
+```{r}
+# Normalize features
+station_features <- station_features %>%
+  mutate(
+    total_trips_scaled = scale(total_trips),
+    peak_trip_proportion_scaled = scale(peak_trip_proportion),
+    member_proportion_scaled = scale(member_proportion),
+    avg_trip_duration_scaled = scale(avg_trip_duration),
+    total_docks_scaled = scale(total_docks)
+  )
+
+
+clustering_data <- station_features %>%
+  select(
+    total_trips_scaled,
+    peak_trip_proportion_scaled,
+    member_proportion_scaled,
+    avg_trip_duration_scaled,
+    total_docks_scaled,
+    close_to_mbta  # Include as is (binary feature)
+  )
+
+```
+
+
+```{r}
+set.seed(123)
+
+# Compute total within-cluster sum of squares for different k values
+wss <- sapply(1:10, function(k) {
+  kmeans(clustering_data, centers = k, nstart = 25)$tot.withinss
+})
+
+# Plot the Elbow Method
+plot(1:10, wss, type = "b", pch = 19, frame = FALSE,
+     xlab = "Number of Clusters (k)",
+     ylab = "Total Within-Cluster Sum of Squares",
+     main = "Elbow Method for Optimal k")
+
+```
+
+```{r}
+set.seed(123)
+
+# Run k-means clustering with 3 clusters
+kmeans_model <- kmeans(clustering_data, centers = 3, nstart = 25)
+
+# Add cluster assignments to the dataset
+station_features$cluster <- as.factor(kmeans_model$cluster)
+
+library(ggplot2)
+
+ggplot(station_features, aes(x = total_trips_scaled, y = member_proportion_scaled, color = cluster)) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  labs(
+    title = "Clusters of Bluebike Stations",
+    x = "Total Trips (Scaled)",
+    y = "Member Proportion (Scaled)",
+    color = "Cluster"
+  )
+
+cluster_centers <- as.data.frame(kmeans_model$centers)
+rownames(cluster_centers) <- paste0("Cluster_", 1:nrow(cluster_centers))
+
+print(cluster_centers)
+
+
+```
+
+```{r}
+cluster_summary <- station_features %>%
+  group_by(cluster) %>%
+  summarise(
+    avg_total_trips = mean(total_trips),
+    avg_peak_trip_proportion = mean(peak_trip_proportion),
+    avg_member_proportion = mean(member_proportion),
+    avg_trip_duration = mean(avg_trip_duration),
+    avg_total_docks = mean(total_docks),
+    pct_close_to_mbta = mean(close_to_mbta) * 100
+  )
+
+print(cluster_summary)
+
+```
+
+```{r}
+# Melt the cluster centers for visualization
+library(reshape2)
+
+cluster_centers <- as.data.frame(kmeans_model$centers)
+cluster_centers$cluster <- rownames(cluster_centers)
+melted_centers <- melt(cluster_centers, id.vars = "cluster")
+
+# Bar plot of cluster centers
+ggplot(melted_centers, aes(x = variable, y = value, fill = cluster)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(
+    title = "Cluster Centers by Features",
+    x = "Feature",
+    y = "Scaled Value",
+    fill = "Cluster"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+
+
+
+# LINEAR REGRESSION
+```{r}
+library(dplyr)
+
+# Aggregate data by start station
+station_trip_frequency <- trip_data_with_mbta %>%
+  group_by(start_station_name, start_station_proximity) %>%
+  summarise(
+    total_trips = n(),
+    avg_hour = mean(hour, na.rm = TRUE),
+    avg_weekday = mean(is_weekday, na.rm = TRUE),  # Proportion of weekday trips
+    member_proportion = mean(member_casual == "member", na.rm = TRUE),  # Proportion of trips by members
+    electric_proportion = mean(rideable_type == "electric_bike", na.rm = TRUE),  # Proportion of electric bike trips
+    .groups = "drop"
+  )
+
+# View the aggregated dataset
+head(station_trip_frequency)
+
+
+```
+```{r}
+# Aggregate data by hour and day of week
+time_trip_frequency <- trip_data_with_mbta %>%
+  group_by(hour, day_of_week, is_weekday) %>%
+  summarise(
+    total_trips = n(),
+    member_proportion = mean(member_casual == "member", na.rm = TRUE),
+    electric_proportion = mean(rideable_type == "electric_bike", na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# View the aggregated dataset
+head(time_trip_frequency)
+
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(time_trip_frequency, aes(x = hour, y = total_trips, color = is_weekday)) +
+  geom_line(size = 1.2) +
+  theme_minimal() +
+  labs(
+    title = "Hourly Trip Trends by Weekday vs. Weekend",
+    x = "Hour of Day",
+    y = "Total Trips",
+    color = "Weekday"
+  )
+
+```
+
+```{r}
+ggplot(time_trip_frequency, aes(x = day_of_week, y = total_trips, fill = is_weekday)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(
+    title = "Trip Frequency by Day of Week",
+    x = "Day of Week",
+    y = "Total Trips",
+    fill = "Weekday"
+  )
+
+```
+
+```{r}
+# Ensure necessary libraries are loaded
+library(dplyr)
+
+# Convert proximity to MBTA, user type, and bike type to factors (if not already)
+trip_data_with_mbta <- trip_data_with_mbta %>%
+  mutate(
+    start_station_proximity = as.factor(start_station_proximity),  # Proximity to MBTA (e.g., Close or Far)
+    member_casual = as.factor(member_casual),  # User type (e.g., member or casual)
+    rideable_type = as.factor(rideable_type)   # Bike type (e.g., electric or manual)
+  )
+
+# Fit the linear regression model
+lm_duration <- lm(trip_duration ~ start_station_proximity + member_casual + rideable_type, 
+                  data = trip_data_with_mbta)
+
+# View the model summary
+summary(lm_duration)
+
+```
+
+# Near vs. Far Blue Bike Stops
+
+```{r}
+library(dplyr)
+
+# Aggregate activity metrics by proximity
+proximity_analysis <- trip_data_with_mbta %>%
+  group_by(start_station_proximity) %>%
+  summarise(
+    total_trips = n(),
+    avg_trip_duration = mean(trip_duration, na.rm = TRUE),
+    member_proportion = mean(member_casual == "member", na.rm = TRUE),
+    electric_proportion = mean(rideable_type == "electric_bike", na.rm = TRUE),
+    peak_hour_proportion = mean(hour %in% c(7, 8, 9, 17, 18, 19), na.rm = TRUE)  # Peak commuting hours
+  )
+
+# View the summary
+print(proximity_analysis)
+
+```
+
+```{r}
+ggplot(trip_data_with_mbta, aes(x = start_station_proximity, fill = member_casual)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(
+    title = "User Type Distribution by Station Proximity",
+    x = "Station Proximity to MBTA Stops",
+    y = "Proportion",
+    fill = "User Type"
+  )
+
+```
+
+```{r}
+# Normalized comparison - average activity 
+
+# Number of stations in each proximity category
+n_close <- 93  # Replace with the actual count of "Close" stations
+n_far <- 319   # Replace with the actual count of "Far" stations
+
+# Normalize total trips by number of stations
+proximity_analysis <- proximity_analysis %>%
+  mutate(
+    trips_per_station = case_when(
+      start_station_proximity == "Close" ~ total_trips / n_close,
+      start_station_proximity == "Far" ~ total_trips / n_far
+    )
+  )
+# View normalized results
+print(proximity_analysis)
+
+```
+
+```{r}
+library(dplyr)
+
+# Aggregate trips by day of week and proximity
+day_of_week_analysis <- trip_data_with_mbta %>%
+  group_by(day_of_week, start_station_proximity) %>%
+  summarise(
+    total_trips = n(),  # Total trips for the group
+    num_stations = ifelse(start_station_proximity == "Close", 93, 319),  # Adjust for known station counts
+    trips_per_station = total_trips / num_stations,  # Calculate trips per station
+    .groups = "drop"
+  )
+
+
+library(ggplot2)
+
+# Plot trips per station by day of the week and proximity
+ggplot(day_of_week_analysis, aes(x = day_of_week, y = trips_per_station, fill = start_station_proximity)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(
+    title = "Daily Trips per Station by Proximity to MBTA Stops",
+    x = "Day of Week",
+    y = "Trips per Station",
+    fill = "Proximity"
+  )
+
+
+```
+
+# Casual Vs. Member Bike Usage
+
+```{r}
+library(dplyr)
+
+# Aggregate metrics by user type
+user_type_analysis <- trip_data_with_mbta %>%
+  group_by(member_casual) %>%
+  summarise(
+    total_trips = n(),  # Total trips
+    avg_trip_duration = mean(trip_duration, na.rm = TRUE),  # Average trip duration
+    electric_proportion = mean(rideable_type == "electric_bike", na.rm = TRUE),  # Proportion of electric bike trips
+    peak_hour_proportion = mean(hour %in% c(7, 8, 9, 17, 18, 19), na.rm = TRUE),  # Proportion of peak-hour trips
+    .groups = "drop"
+  )
+
+# View the summary
+print(user_type_analysis)
+
+```
+
+
+```{r}
+library(dplyr)
+
+# Aggregate total trips and metrics by user type
+user_type_summary <- trip_data_with_mbta %>%
+  group_by(member_casual) %>%
+  summarise(
+    total_trips = n(),  # Total number of trips
+    avg_trip_duration = mean(trip_duration, na.rm = TRUE),  # Average trip duration
+    electric_proportion = mean(rideable_type == "electric_bike", na.rm = TRUE),  # Proportion of electric bike trips
+    peak_hour_proportion = mean(hour %in% c(7, 8, 9, 17, 18, 19), na.rm = TRUE),  # Proportion of peak-hour trips
+    .groups = "drop"
+  )
+
+# View the results
+print(user_type_summary)
+
+```
+
+# Aggregate Total Trips per station for GIS Analysis
+
+
+```{r}
+library(dplyr)
+
+# Aggregate data by station name
+aggregated_station_data <- trip_data_with_mbta %>%
+  group_by(start_station_name) %>%
+  summarise(
+    total_trips = n(),  # Count total trips for the station
+    avg_lat = mean(start_lat, na.rm = TRUE),  # Calculate average latitude
+    avg_lng = mean(start_lng, na.rm = TRUE),  # Calculate average longitude
+    .groups = "drop"
+  )
+
+# View the aggregated dataset
+head(aggregated_station_data)
+
+# Write to a CSV file
+write.csv(aggregated_station_data, "aggregated_station_data.csv", row.names = FALSE)
+
+```
+
+# Top MBTA Stops
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+
+# Load the data
+file_path <- "aggregated_station_data_w_mbta.csv"
+data <- read.csv(file_path)
+
+head(data)
+
+# Summarize total trips by MBTA stop
+top_mbta_stops <- data %>%
+  group_by(STATION, LINE) %>%
+  summarise(total_trips = sum(total_trips, na.rm = TRUE)) %>%
+  arrange(desc(total_trips)) %>%
+  head(10)
+
+# View the top 10 MBTA stops with lines
+print(top_mbta_stops)
+```
+```{r}
+ggplot(top_mbta_stops, aes(x = reorder(STATION, total_trips), y = total_trips, fill = LINE)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  theme_minimal() +
+  scale_fill_manual(
+    values = c(
+      "GREEN" = "green",
+      "RED" = "red"
+    )
+  ) +
+  labs(
+    title = "Top 10 MBTA Stops by Blue Bike Trips",
+    x = "Total Trips",
+    y = "MBTA Stop",
+    fill = "MBTA Line"
+  )
+
+
+```
+
+```{r}
+# Summarize total trips by MBTA stop
+bottom_mbta_stops <- data %>%
+  group_by(STATION, LINE) %>%
+  summarise(total_trips = sum(total_trips, na.rm = TRUE)) %>%
+  arrange(desc(total_trips)) %>%
+  tail(10)
+
+# View the top 10 MBTA stops with lines
+print(bottom_mbta_stops)
+```
+
+
+

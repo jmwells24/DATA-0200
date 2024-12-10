@@ -1,0 +1,351 @@
+---
+title: "Blue Bikes EDA"
+author: "Justin Wells"
+output: html_document
+date: "2024-12-04"
+---
+
+## **still needs work 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+setwd("/Users/jmwells24/Desktop 2/DATA-0200/Final Project")
+```
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(readr)
+library(ggplot2)
+```
+```{r}
+# Define custom colors for MBTA lines
+mbta_colors <- c(
+  "BLUE" = "blue",
+  "BLUE/GREEN" = "cyan",
+  "BLUE/ORANGE" = "coral", 
+  "GREEN" = "darkgreen", 
+  "GREEN/ORANGE" = "brown",
+  "GREEN/RED" = "green",
+  "ORANGE" = "orange",
+  "RED" = "red",
+  "SILVER" = "gray"
+)
+```
+```{r}
+data <- read.csv("trip_data_with_mbta.csv")
+```
+
+# Dataset Overview
+```{r}
+# Structure of dataset
+str(data)
+
+# Summarize the dataset
+summary(data)
+```
+# Dataset View
+```{r}
+# view columns
+colnames(data)
+
+# view first few rows
+head(data)
+```
+# Data Inaccuracies
+```{r}
+# Check for null values
+cat("Null values in each column:\n")
+print(colSums(is.na(data)))
+
+# Remove rows with null values
+data <- na.omit(data)
+
+# Verify if null values are removed
+cat("Are there any null values left? ", any(is.na(data)), "\n")
+```
+#Descriptive Statistics
+```{r}
+aggregate(trip_duration ~ member_casual, data, mean)
+```
+#Proximity Analysis
+```{r}
+# Start Station Proximity
+table(data$member_casual, data$start_station_proximity)
+```
+```{r}
+# End Station Proximity
+table(data$member_casual, data$end_station_proximity)
+```
+# Member vs. Casual Trends → Trip Duration
+*Analyze and compare the average trip duration for members and casual riders*
+```{r}
+# Summarize trip duration for member and casual riders
+member_casual_summary <- data %>%
+  group_by(member_casual) %>%
+  summarise(
+    mean_trip_duration = mean(trip_duration, na.rm = TRUE),
+    median_trip_duration = median(trip_duration, na.rm = TRUE),
+    trip_count = n()
+  )
+print(member_casual_summary)
+```
+*Explore trip duration distributions for each rider type.*
+```{r}
+# Trip duration distribution by rider type
+member_casual_distribution <- data %>%
+  group_by(member_casual) %>%
+  summarise(
+    min_duration = min(trip_duration, na.rm = TRUE),
+    max_duration = max(trip_duration, na.rm = TRUE),
+    sd_duration = sd(trip_duration, na.rm = TRUE)
+  )
+print(member_casual_distribution)
+```
+# Time Trends → Trip Duration by Hour
+*Breakdown of hourly trends*
+```{r}
+# Extract hour from the timestamp
+data$hour <- format(as.POSIXct(data$started_at), "%H")
+
+# Summarize trip duration by hour
+time_trends <- data %>%
+  group_by(hour) %>%
+  summarise(
+    mean_trip_duration = mean(trip_duration, na.rm = TRUE),
+    median_trip_duration = median(trip_duration, na.rm = TRUE),
+    trip_count = n()
+  )
+print(time_trends)
+```
+*Break down hourly trends by rider type (member vs. casual).*
+```{r}
+# Hourly trends by rider type
+hourly_member_casual <- data %>%
+  group_by(hour, member_casual) %>%
+  summarise(
+    mean_trip_duration = mean(trip_duration, na.rm = TRUE),
+    trip_count = n()
+  )
+print(hourly_member_casual)
+```
+
+*Analyze how trip duration changes throughout the week (weekday vs. weekend).*
+```{r}
+# Weekday vs Weekend trends
+data$day_type <- ifelse(weekdays(as.Date(data$started_at)) %in% c("Saturday", "Sunday"), "Weekend", "Weekday")
+weekday_weekend_trends <- data %>%
+  group_by(day_type) %>%
+  summarise(
+    mean_trip_duration = mean(trip_duration, na.rm = TRUE),
+    trip_count = n()
+  )
+print(weekday_weekend_trends)
+
+# Plot: Weekday vs Weekend Trends in Trip Duration
+ggplot(weekday_weekend_trends, aes(x = day_type, y = mean_trip_duration, fill = day_type)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Weekday vs Weekend Trends in Trip Duration") +
+  xlab("Day Type") +
+  ylab("Average Trip Duration (minutes)") +
+  theme_minimal()
+```
+*Analyze how trip duration changes throughout the week (weekday vs. weekend) by rider type.*
+```{r}
+# Weekday vs Weekend trends
+weekday_weekend_trends <- data %>%
+  group_by(day_type, member_casual) %>%
+  summarise(
+    mean_trip_duration = mean(trip_duration, na.rm = TRUE),
+    trip_count = n()
+  )
+print(weekday_weekend_trends)
+
+# Plot: Weekday vs Weekend Trends in Trip Duration
+ggplot(weekday_weekend_trends, aes(x = day_type, y = mean_trip_duration, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  ggtitle("Weekday vs Weekend Trends in Trip Duration") +
+  xlab("Day Type") +
+  ylab("Average Trip Duration (minutes)") +
+  theme_minimal()
+
+```
+*Compare trip durations during peak hours (morning/evening) vs. off-peak hours.*
+```{r}
+# Peak hours (7-10 AM, 4-7 PM) vs off-peak
+data$peak_offpeak <- ifelse(data$hour %in% c("07", "08", "09", "10", "16", "17", "18", "19"), "Peak", "Off-Peak")
+peak_offpeak_trends <- data %>%
+  group_by(peak_offpeak, member_casual) %>%
+  summarise(
+    mean_trip_duration = mean(trip_duration, na.rm = TRUE),
+    trip_count = n()
+  )
+print(peak_offpeak_trends)
+
+# Plot: Peak vs Off-Peak Trip Trends by Rider Type
+ggplot(peak_offpeak_trends, aes(x = peak_offpeak, y = mean_trip_duration, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  ggtitle("Peak vs Off-Peak Trends in Trip Duration by Rider Type") +
+  xlab("Time Period") +
+  ylab("Average Trip Duration (minutes)") +
+  theme_minimal()
+```
+
+# Proximity Trends → Close vs. Far Trip Counts
+*Compare start station proximity for close vs far trip counts*
+```{r}
+# Summarize trip counts by proximity
+proximity_trends <- data %>%
+  group_by(start_station_proximity) %>%
+  summarise(trip_count = n())
+print(proximity_trends)
+```
+
+# MBTA Line Trends → Trip Counts
+*Compare different MBTA Lines usage through trip count*
+```{r}
+# Summarize trip counts by MBTA line
+mbta_line_trends <- data %>%
+  group_by(start_mbta_line) %>%
+  summarise(trip_count = n())
+print(mbta_line_trends)
+```
+
+## RESEARCH QUESTION BASED EDA (used for presentation)
+
+# Question 1: How does the activity at Blue Bike stations far from MBTA stops differ from stations that are close?
+```{r}
+# Summarize trip count by proximity
+proximity_activity <- data %>%
+  group_by(start_station_proximity) %>%
+  summarise(
+    trip_count = n(),
+    mean_trip_duration = mean(trip_duration, na.rm = TRUE),
+    median_trip_duration = median(trip_duration, na.rm = TRUE)
+  )
+print(proximity_activity)
+
+# Plot: Trip Count and Duration by Proximity
+ggplot(proximity_activity, aes(x = start_station_proximity)) +
+  geom_bar(aes(y = trip_count, fill = start_station_proximity), stat = "identity") +
+  ggtitle("Activity at Blue Bike Stations by Proximity to MBTA Stops") +
+  xlab("Proximity to MBTA") +
+  ylab("Trip Count") +
+  theme_minimal()
+```
+
+```{r}
+# Count the number of Blue Bike stations by proximity
+stations_proximity <- data %>%
+  group_by(start_station_proximity) %>%
+  summarise(station_count = n_distinct(start_station_name))
+print(stations_proximity)
+
+# Plot: Blue Bike Stations by Proximity to MBTA Stops
+ggplot(stations_proximity, aes(x = start_station_proximity, y = station_count, fill = start_station_proximity)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Blue Bike Stations by Proximity to MBTA Stops") +
+  xlab("Proximity to MBTA") +
+  ylab("Number of Blue Bike Stations") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+# Question 2: What MBTA lines/stops are most popular with Blue Bike stations?
+```{r}
+# Count trips by MBTA line
+mbta_line_popularity <- data %>%
+  group_by(start_mbta_line) %>%
+  summarise(
+    trip_count = n()
+  ) %>%
+  arrange(desc(trip_count))
+print(mbta_line_popularity)
+
+# Plot: Popularity of MBTA Lines
+ggplot(mbta_line_popularity, aes(x = reorder(start_mbta_line, -trip_count), y = trip_count, fill = start_mbta_line)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Popularity of MBTA Lines with Blue Bike Stations") +
+  xlab("MBTA Line") +
+  ylab("Trip Count") +
+  scale_fill_manual(values = mbta_colors) + # Apply custom colors
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+# Question 3: Does Blue Bike usage align with the expected travel commute times of MBTA users (7-9am and 5-7pm during the week?
+```{r}
+# Extract day of the week and hour from the dataset
+data$day_of_week <- weekdays(as.Date(data$started_at))
+data$hour <- as.numeric(format(as.POSIXct(data$started_at), "%H"))
+
+
+# Categorize time into peak commute and non-peak
+data$commute_period <- ifelse(data$hour %in% c(7, 8, 9, 17, 18, 19), "Commute", "Non-Commute")
+
+# Analyze usage during commute vs. non-commute times
+commute_analysis <- data %>%
+  group_by(commute_period, member_casual) %>%
+  summarise(
+    trip_count = n(),
+    mean_trip_duration = mean(trip_duration, na.rm = TRUE)
+  )
+print(commute_analysis)
+
+# Plot: Commute vs Non-Commute Usage Rider Type Comparison (Bar Plot)
+ggplot(data, aes(x = commute_period, fill = member_casual)) +
+  geom_bar(position = "dodge") +
+  ggtitle("Blue Bike Usage During Commute vs Non-Commute Times") +
+  xlab("Time Period") +
+  ylab("Trip Count") +
+  theme_minimal()
+
+# Ensure day_of_week is in chronological order
+data$day_of_week <- factor(data$day_of_week, 
+                           levels = c("Monday", "Tuesday", "Wednesday", "Thursday", 
+                                      "Friday", "Saturday", "Sunday"))
+
+# Plot: Daily Usage Rider Type Comparison (Bar Plot)
+ggplot(data, aes(x = day_of_week, fill = member_casual)) +
+  geom_bar(position = "dodge", stat = "count") +
+  ggtitle("Daily Blue Bike Usage by Rider Type") +
+  xlab("Day of Week") +
+  ylab("Number of Trips") +
+  theme_minimal()
+
+```
+# Additionally, does member usage of Blue Bikes decrease on the weekend?
+```{r}
+# Categorize days into weekday vs weekend
+data$day_type <- ifelse(data$day_of_week %in% c("Saturday", "Sunday"), "Weekend", "Weekday")
+
+# Analyze member and casual usage by day type
+member_usage_weekend <- data %>%
+  group_by(day_type, member_casual) %>%
+  summarise(
+    trip_count = n(),
+    mean_trip_duration = mean(trip_duration, na.rm = TRUE)
+  )
+print(member_usage_weekend)
+
+# Plot: Member and Casual Usage by Day Type
+ggplot(member_usage_weekend, aes(x = day_type, y = trip_count, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  ggtitle("Blue Bike Usage by Day Type (Weekday vs Weekend)") +
+  xlab("Day Type") +
+  ylab("Trip Count") +
+  theme_minimal()
+
+# Plot: Blue Bike Usage by Hour and Day
+usage_heatmap <- data %>%
+  group_by(day_of_week, hour) %>%
+  summarise(trip_count = n())
+
+ggplot(usage_heatmap, aes(x = hour, y = day_of_week, fill = trip_count)) +
+  geom_tile() +
+  ggtitle("Heatmap of Blue Bike Usage by Hour and Day") +
+  xlab("Hour of Day") +
+  ylab("Day of Week") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  theme_minimal()
+```
